@@ -2,7 +2,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Riptide Software Inc.
+ * Copyright (c) 2014-2016 Riptide Software Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,22 +30,13 @@
     chai.config.includeStack = true;
 
     describe('S3FS Files', function () {
-        var s3Credentials,
-            bucketName,
+        var bucketName,
             bucketS3fsImpl,
             s3fsImpl;
 
         before(function () {
-            if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_KEY) {
-                throw new Error('Both an AWS Access Key ID and Secret Key are required');
-            }
-            s3Credentials = {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_KEY,
-                region: process.env.AWS_REGION
-            };
             bucketName = 's3fs-file-test-bucket-' + (Math.random() + '').slice(2, 8);
-            s3fsImpl = new S3FS(bucketName, s3Credentials);
+            s3fsImpl = new S3FS(bucketName);
 
             return s3fsImpl.create();
         });
@@ -272,6 +263,21 @@
                 expect(data.CopyObjectResult.LastModified).to.be.ok();
                 return true;
             });
+        });
+
+        it('should be able to copy a file with options', function () {
+            return bucketS3fsImpl.writeFile('test-copy.json', '{}')
+                .then(function () {
+                    var options = { ContentType: 'application/json', MetadataDirective: 'REPLACE', Metadata: { Somewhere: 'Over the rainbow' } };
+                    return bucketS3fsImpl.copyFile('test-copy.json', 'test-copy-dos.json', options);
+                })
+                .then(function () {
+                    return expect(bucketS3fsImpl.readFile('test-copy-dos.json')).to.eventually.satisfy(function (data) {
+                        expect(data.ContentType).to.equal('application/json');
+                        expect(data.Metadata.somewhere).to.equal('Over the rainbow');
+                        return true;
+                    });
+                });
         });
 
         it('should be able to get the head of an object', function () {
